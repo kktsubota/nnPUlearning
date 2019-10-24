@@ -129,6 +129,7 @@ def main(arguments):
     print("")
 
     os.makedirs(args.out)
+
     writer = SummaryWriter(os.path.join(args.out, 'logdir'))
     # run training
     for epoch in range(args.epoch):
@@ -136,16 +137,19 @@ def main(arguments):
         for x, t in train_iter:
             x, t = x.to(device), t.to(device)
             for key in optimizers.keys():
+                models[key].train()
                 loss, loss_total = models[key](x, t, loss_funcs[key])
+                models[key].zero_grad()
                 loss.backward()
                 optimizers[key].step()
 
-        # valid: MultiPUEvaluator(prior, valid_iter, models, device=args.gpu)
+        # validation
         # key: [t_p, t_n, f_p, f_n]
         summary = {key: np.zeros(4) for key in models.keys()}
         for x, t in valid_iter:
             x, t = x.to(device), t.to(device)
             for key, model in models.items():
+                model.eval()
                 summary[key] += model.compute_prediction_summary(x, t)
 
         computed_summary = {}
@@ -153,8 +157,8 @@ def main(arguments):
             t_p, t_u, f_p, f_u = values
             n_p = t_p + f_u
             n_u = t_u + f_p
-            error_p = 1 - t_p / n_p
-            error_u = 1 - t_u / n_u
+            error_p = 1 - float(t_p) / n_p
+            error_u = 1 - float(t_u) / n_u
             computed_summary[k] = 2 * prior * error_p + error_u - prior
 
         # should calculate compute_mean instead of value
@@ -165,19 +169,12 @@ def main(arguments):
         for x, t in test_iter:
             x, t = x.to(device), t.to(device)
             for key, model in models.items():
+                model.eval()
                 err = model.error(x, t)
                 writer.add_scalar('test/{}/error'.format(key), err, epoch)
-
-        print(epoch)
     
     torch.save(model.cpu(), os.path.join(args.out, 'model.pt'))
-        # trainer.extend(extensions.PrintReport(
-            # ['epoch', 'train/nnPU/error', 'test/nnPU/error', 'train/uPU/error', 'test/uPU/error', 'elapsed_time']))
 
-    # trainer.extend(
-    #     extensions.PlotReport(['train/nnPU/error', 'train/uPU/error'], 'epoch', file_name='training_error.png'))
-    # trainer.extend(
-    #     extensions.PlotReport(['test/nnPU/error', 'test/uPU/error'], 'epoch', file_name='test_error.png'))
 
 
 if __name__ == '__main__':
