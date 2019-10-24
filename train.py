@@ -129,10 +129,12 @@ def main(arguments):
     print("")
 
     os.makedirs(args.out)
+    writers = {"nnPU": SummaryWriter(os.path.join(args.out, 'nnPU')),
+               "uPU": SummaryWriter(os.path.join(args.out, 'uPU'))}
 
-    writer = SummaryWriter(os.path.join(args.out, 'logdir'))
     # run training
     for epoch in range(args.epoch):
+        print(epoch)
         # train
         for x, t in train_iter:
             x, t = x.to(device), t.to(device)
@@ -163,7 +165,7 @@ def main(arguments):
 
         # should calculate compute_mean instead of value
         for key, value in computed_summary.items():
-            writer.add_scalar('train/{}/error'.format(key), value, epoch)
+            writers[key].add_scalar('train/error'.format(key), value, epoch)
 
         # test:
         for x, t in test_iter:
@@ -171,7 +173,7 @@ def main(arguments):
             for key, model in models.items():
                 model.eval()
                 err = model.error(x, t)
-                writer.add_scalar('test/{}/error'.format(key), err, epoch)
+                writers[key].add_scalar('test/error'.format(key), err, epoch)
     
     torch.save(model.cpu(), os.path.join(args.out, 'model.pt'))
 
