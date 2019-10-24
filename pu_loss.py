@@ -21,46 +21,7 @@ class PULoss(torch.nn.Module):
         return pu_loss(x, t, self.prior, self.loss_func, gamma=self.gamma, beta=self.beta, nnpu=self.nnpu)
 
 
-class PULossFunction(torch.autograd.Function):
-    """wrapper of loss function for PU learning"""
-
-    def __init__(self):
-        super(PULossFunction, self).__init__()
-
-    @staticmethod
-    def forward(ctx, x, t, prior, loss_func=(lambda x: torch.sigmoid(-x)), gamma=1, beta=0, nnpu=True):
-        x_in = x
-        t = t[:, None]
-
-        positive, unlabeled = (t == 1), (t == -1)
-        n_positive, n_unlabeled = max([1., positive.sum()]), max([1., unlabeled.sum()])
-
-        y_positive = loss_func(x_in)
-        y_unlabeled = loss_func(-x_in)  # sigmoid
-        positive_risk = torch.sum(prior * positive / n_positive * y_positive)
-        negative_risk = torch.sum((unlabeled / n_unlabeled - prior * positive / n_positive) * y_unlabeled)
-        objective = positive_risk + negative_risk
-        if nnpu:
-            if negative_risk.data < -beta:
-                objective = positive_risk - beta
-                x_out = -gamma * negative_risk
-            else:
-                x_out = objective
-        else:
-            x_out = objective
-
-        ctx.save_for_backward(x_in, x_out)
-        return objective
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        x_in, x_out = ctx.saved_tensors
-        x_out.backward()
-        grad_input = grad_output[0].reshape(grad_output[0].shape + (1,) * (x_in.ndim - 1)) * x_in.grad
-        return grad_input
-
-
-def pu_loss(x, t, prior, loss=(lambda x: torch.sigmoid(-x)), gamma=1, beta=0, nnpu=True):
+def pu_loss(x, t, prior, loss=(lambda x: torch.sigmoid(-x)), gamma=1.0, beta=0.0, nnpu=True):
     """wrapper of loss function for non-negative/unbiased PU learning
         .. math::
             \\begin{array}{lc}
@@ -89,7 +50,7 @@ def pu_loss(x, t, prior, loss=(lambda x: torch.sigmoid(-x)), gamma=1, beta=0, nn
         Proceedings of The 32nd International Conference on Machine Learning. 2015.
     """
     x_in, t = x, t[:, None]
-    positive, unlabeled = (t == 1), (t == -1)
+    positive, unlabeled = (t == 1).float(), (t == -1).float()
     n_positive, n_unlabeled = max([1., positive.sum()]), max([1., unlabeled.sum()])
 
     y_positive = loss(x_in)
