@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-from torch.utils.tensorboard import SummaryWriter
 
 
 class MyClassifier(nn.Module):
@@ -24,10 +23,10 @@ class MyClassifier(nn.Module):
         size = len(t)
         with torch.no_grad():
             h = torch.reshape(torch.sign(self.calculate(x)), (size,))
-        result = (h != t).sum() / size
+            result = (h != t).sum().float() / size
         self.train(training)
         return result.cpu()
-    
+
     def compute_prediction_summary(self, x, t):
         n_p = (t == 1).sum()
         n_n = (t == -1).sum()
@@ -45,7 +44,7 @@ class LinearClassifier(MyClassifier, nn.Module):
         super(LinearClassifier, self).__init__()
         self.l = nn.Linear(dim, 1)
         self.prior = prior
-    
+
     def calculate(self, x):
         x = x.view(x.shape[0], -1)
         h = self.l(x)
@@ -83,7 +82,7 @@ class MultiLayerPerceptron(MyClassifier, nn.Module):
 
         self.af = nn.ReLU()
         self.prior = prior
-    
+
     def calculate(self, x):
         x = x.view(x.shape[0], -1)
         h = self.l1(x)
