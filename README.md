@@ -1,5 +1,5 @@
 # non-negative PU Learning (nnPULearning)
-unofficial pytorch reimplementation of nnPULearning.
+unofficial pytorch reimplementation of nnPULearning. Official chainer implementation is [here](https://github.com/kiryor/nnPUlearning).
 
 ```bash
 $ python train.py
